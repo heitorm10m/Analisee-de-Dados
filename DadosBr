@@ -1,0 +1,197 @@
+# %% [markdown]
+# # Análise do Brasileirão de Pontos Corridos
+# 
+# Fonte dos dados: https://www.kaggle.com/macedojleo/campeonato-brasileiro-2003-a-2019
+# 
+# ## Pré-Processamento dos Dados
+
+# %%
+# carrega bibliotecas
+import pandas as pd
+import matplotlib.pyplot as plt
+import pandas, numpy as np
+import seaborn as sns
+
+# %%
+# carrega dataset
+df = pd.read_csv('novo_campeonato_brasileiro.csv')
+df.head()
+
+
+# %%
+# Cria coluna com clube vencedor
+def clube_vencedor(row):
+    if row['Vencedor']=='Mandante':
+        return row['Equipe_mandante']
+    if row['Vencedor']=='Visitante':
+        return row['Equipe_visitante']
+    else:
+        return 'Empate'
+    
+df['Clube_Vencedor'] = df.apply(clube_vencedor, axis=1)
+df.head()
+
+# %%
+# Cria coluna com clube derrotado
+def clube_derrotado(row):
+    if row['Vencedor']=='Mandante':
+        return row['Equipe_visitante']
+    if row['Vencedor']=='Visitante':
+        return row['Equipe_mandante']
+    else:
+        return 'Empate'
+    
+df['Clube_Derrotado'] = df.apply(clube_derrotado, axis=1)
+df.head()
+
+
+# %%
+# cria coluna de gols do vencedor e derrotado 
+def gols_vencedor(row):
+    if row['Vencedor']=='Mandante':
+        return row['Gols_mandante']
+    if row['Vencedor']=='Visitante':
+        return row['Gols_visitante']
+    
+df['gols_vencedor'] = df.apply(gols_vencedor, axis=1)
+
+def gols_derrotado(row):
+    if row['Vencedor']=='Mandante':
+        return row['Gols_visitante']
+    if row['Vencedor']=='Visitante':
+        return row['Gols_mandante']
+    
+df['gols_derrotado'] = df.apply(gols_derrotado, axis=1)
+
+def gols_empate(row):
+    if row['Vencedor']=='Empate':
+        return row['Gols_mandante']
+    
+df['gols_empate'] = df.apply(gols_empate, axis=1)
+
+df['dif_gols'] = df['gols_vencedor']-df['gols_derrotado']
+df['total_gols'] = df['Gols_mandante']+df['Gols_visitante']
+
+# %%
+# Cria coluna com Estado Vencedor
+def Estado_vencedor(row):
+    if row['Vencedor']=='Mandante':
+        return row['Mandante_UF']
+    if row['Vencedor']=='Visitante':
+        return row['Visitante_UF']
+    else:
+        return 'Empate'
+
+df['Estado_vencedor'] = df.apply(Estado_vencedor, axis=1)
+df.head()
+
+    
+
+# %% [markdown]
+# # Quem foram os maiores vencedores? E perdedores?
+
+# %%
+# qual clube tem mais vitórias na história dos pontos corridos? (top10)
+df['Clube_Vencedor'].value_counts()[1:10]
+
+
+# %%
+# qual clube tem mais derrotas? (P
+df['Clube_Derrotado'].value_counts()[1:10]
+
+# %%
+# E nos últimos 10 anos?
+df[df['Ano']>2009]['Clube_Derrotado'].value_counts()[1:10]
+
+# %% [markdown]
+# # Federações com maior numero de vitorias 
+# 
+
+# %%
+
+fig = plt.figure(figsize=(6,4))
+ax = fig.add_axes([0,0,1,1])
+
+
+df['Estado_vencedor'].value_counts()[1:21].plot(kind='bar', color=['slategray','steelblue', 'lightblue'], width=.5, rot=0);
+
+ax.set_xlabel('Estado da Equipe Vencedora', fontsize=12);
+ax.set_ylabel('Quantidade', fontsize=12);
+
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+
+
+
+
+df['Estado_vencedor'].value_counts()
+
+# %% [markdown]
+# # Mando de campo faz diferença?
+# 
+
+# %%
+# Jogar em casa tem correlação com a vitória?
+
+fig = plt.figure(figsize=(6,4))
+ax = fig.add_axes([0,0,1,1])
+df['Vencedor'].value_counts().plot(kind='bar', color=['slategray','steelblue', 'lightblue'], width=.5, rot=0);
+ax.set_xlabel('Condicao da Equipe Vencedora', fontsize=12);
+ax.set_ylabel('Quantidade', fontsize=12);
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+
+
+
+df['Vencedor'].value_counts()
+
+# %%
+df[['Gols_mandante','Gols_visitante']].describe()
+
+# %% [markdown]
+# # Estamos ficando mais retranqueiros?
+# 
+
+# %%
+# Como variou a quantidade de gols por partida ao longo dos anos?
+plt.figure(figsize=(16,5))
+sns.boxplot(x="Ano", y="total_gols",data=df).set(
+    xlabel='Ano', 
+    ylabel='Gols na Partida',
+    title = 'Gols/Partida ao Longo dos Anos');
+
+# %%
+#  evolucao da media de gols?
+df_gols = df.groupby(['Ano']).agg({'gols_vencedor':'sum','gols_derrotado':'sum','Data':'count','dif_gols':'mean'})
+df_gols['media_gols']= (df_gols['gols_vencedor']+df_gols['gols_derrotado'])/df_gols['Data']
+df_gols['media_vencedor']= df_gols['gols_vencedor']/df_gols['Data']
+df_gols['media_perdedor']= df_gols['gols_derrotado']/df_gols['Data']
+
+plt.figure(figsize=(17,5))
+plt.subplot(131)
+plt.plot(df_gols['media_gols'])
+plt.title('Media de Gols')
+plt.xlabel('Ano')
+plt.ylabel('Gols')
+
+plt.subplot(132)
+plt.plot(df_gols['media_vencedor'])
+plt.title('Media de Gols do Vencedor')
+plt.xlabel('Ano')
+plt.ylabel('Gols')
+
+plt.subplot(133)
+plt.plot(df_gols['media_perdedor'])
+plt.title('Media de Gols do Perdedor')
+plt.xlabel('Ano')
+plt.ylabel('Gols');
+
+# %%
+sns.FacetGrid(df, hue="Ano", size = 7) \
+   .map(sns.kdeplot, "dif_gols") \
+   .add_legend();
+
+# %%
+
+
+
